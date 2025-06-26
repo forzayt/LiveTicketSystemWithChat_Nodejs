@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>User Ticket System</title>
+  <style>
+    body { font-family: sans-serif; }
+    #chat { height: 300px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 5px; }
+    #ticket-form { margin-bottom: 20px; }
+    #ticket-section { display: block; }
+    #chat-section { display: none; }
+  </style>
+</head>
+<body>
+  <h3>Create a Support Ticket</h3>
+  <div id="ticket-section">
+    <form id="ticket-form">
+      <input id="ticket-title" placeholder="Enter ticket title..." required />
+      <button type="submit">Create Ticket</button>
+    </form>
+  </div>
+  <div id="chat-section">
+    <h4 id="ticket-title-display"></h4>
+    <div id="chat"></div>
+    <input id="msg" placeholder="Type message..." />
+    <button onclick="send()">Send</button>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let roomId = null;
+    let ticketTitle = '';
+    const chatBox = document.getElementById('chat');
+    const ticketForm = document.getElementById('ticket-form');
+    const ticketSection = document.getElementById('ticket-section');
+    const chatSection = document.getElementById('chat-section');
+    const ticketTitleDisplay = document.getElementById('ticket-title-display');
+
+    ticketForm.onsubmit = function(e) {
+      e.preventDefault();
+      ticketTitle = document.getElementById('ticket-title').value;
+      socket.emit('create-ticket', { title: ticketTitle });
+    };
+
+    socket.on('ticket-created', ({ roomId: rId, title }) => {
+      roomId = rId;
+      ticketSection.style.display = 'none';
+      chatSection.style.display = 'block';
+      ticketTitleDisplay.textContent = 'Ticket: ' + title;
+      socket.emit('join-room', roomId);
+    });
+
+    socket.on('receive-message', msg => {
+      const div = document.createElement('div');
+      div.textContent = `${msg.sender}: ${msg.text}`;
+      chatBox.appendChild(div);
+    });
+
+    function send() {
+      const text = document.getElementById('msg').value;
+      if (!text) return;
+      socket.emit('send-message', { roomId, text, sender: 'user' });
+      document.getElementById('msg').value = '';
+    }
+  </script>
+</body>
+</html> 

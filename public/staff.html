@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Staff Ticket Dashboard</title>
+  <style>
+    body { font-family: sans-serif; }
+    #tickets { margin-bottom: 20px; }
+    .ticket { cursor: pointer; padding: 5px; border-bottom: 1px solid #eee; }
+    .badge { background: red; color: white; border-radius: 50%; padding: 2px 8px; margin-left: 8px; }
+    #chat { height: 300px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 5px; }
+    #chat-section { display: none; }
+  </style>
+</head>
+<body>
+  <h3>Staff Ticket Dashboard</h3>
+  <div id="tickets"></div>
+  <div id="chat-section">
+    <h4 id="ticket-title-display"></h4>
+    <div id="chat"></div>
+    <input id="msg" placeholder="Type message..." />
+    <button onclick="send()">Send</button>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentRoomId = null;
+    let tickets = [];
+    const ticketsDiv = document.getElementById('tickets');
+    const chatBox = document.getElementById('chat');
+    const chatSection = document.getElementById('chat-section');
+    const ticketTitleDisplay = document.getElementById('ticket-title-display');
+
+    socket.emit('get-tickets');
+
+    socket.on('tickets-list', (data) => {
+      tickets = data;
+      renderTickets();
+    });
+
+    socket.on('new-ticket', (ticket) => {
+      tickets.push(ticket);
+      renderTickets();
+    });
+
+    function renderTickets() {
+      ticketsDiv.innerHTML = '';
+      tickets.forEach(ticket => {
+        const div = document.createElement('div');
+        div.className = 'ticket';
+        div.textContent = ticket.title;
+        if (ticket.unread) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = 'New';
+          div.appendChild(badge);
+        }
+        div.onclick = () => selectTicket(ticket.roomId, ticket.title);
+        ticketsDiv.appendChild(div);
+      });
+    }
+
+    function selectTicket(roomId, title) {
+      currentRoomId = roomId;
+      chatSection.style.display = 'block';
+      ticketTitleDisplay.textContent = 'Ticket: ' + title;
+      chatBox.innerHTML = '';
+      socket.emit('join-room', roomId);
+      socket.emit('mark-read', roomId);
+    }
+
+    socket.on('receive-message', msg => {
+      const div = document.createElement('div');
+      div.textContent = `${msg.sender}: ${msg.text}`;
+      chatBox.appendChild(div);
+    });
+
+    function send() {
+      const text = document.getElementById('msg').value;
+      if (!text) return;
+      socket.emit('send-message', { roomId: currentRoomId, text, sender: 'staff' });
+      document.getElementById('msg').value = '';
+    }
+  </script>
+</body>
+</html> 
